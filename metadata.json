@@ -1,0 +1,7 @@
+{
+  "name": "LiveConferenceTranslator",
+  "description": "Real-time Vietnamese to English live captioning for conferences using Gemini Live API.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
