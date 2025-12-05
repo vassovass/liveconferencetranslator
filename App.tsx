@@ -5,6 +5,8 @@ import CaptionDisplay from './components/CaptionDisplay';
 import ControlBar from './components/ControlBar';
 import { AlertCircle, Key, Crown } from 'lucide-react';
 
+const LOCAL_STORAGE_KEY = 'livecaptions_api_key';
+
 export default function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
   const [errorMsg, setErrorMsg] = useState<string | undefined>();
@@ -13,6 +15,7 @@ export default function App() {
   const [volume, setVolume] = useState<number>(0);
   const [hasKey, setHasKey] = useState<boolean>(false);
   const [isCheckingKey, setIsCheckingKey] = useState<boolean>(true);
+  const [manualApiKey, setManualApiKey] = useState<string>('');
   
   const liveService = useRef<LiveTranslationService | null>(null);
 
@@ -20,15 +23,34 @@ export default function App() {
     checkApiKey();
   }, []);
 
+  const getStoredKey = useCallback(() => {
+    try {
+      return localStorage.getItem(LOCAL_STORAGE_KEY) || '';
+    } catch {
+      return '';
+    }
+  }, []);
+
+  const getEnvKey = useCallback(() => {
+    // Vite exposes env vars with the VITE_ prefix
+    const viteKey = (import.meta as any)?.env?.VITE_GEMINI_API_KEY || '';
+    const nodeKey = (typeof process !== 'undefined' ? (process as any)?.env?.API_KEY : '') || '';
+    return viteKey || nodeKey || '';
+  }, []);
+
   const checkApiKey = async () => {
     setIsCheckingKey(true);
     try {
+      const savedKey = getStoredKey();
+      if (savedKey) setManualApiKey(savedKey);
+      const envKey = getEnvKey();
+
       if (window.aistudio?.hasSelectedApiKey) {
         const has = await window.aistudio.hasSelectedApiKey();
-        setHasKey(has);
+        setHasKey(has || !!envKey || !!savedKey);
       } else {
         // Fallback for non-AI Studio environments
-        setHasKey(!!process.env.API_KEY);
+        setHasKey(!!envKey || !!savedKey);
       }
     } catch (e) {
       console.error("Error checking API key:", e);
@@ -56,14 +78,21 @@ export default function App() {
         setErrorMsg("Failed to select API Key. Please try again.");
       }
     } else {
-      setErrorMsg("API Key selection is not available in this environment.");
+      // Non-AI Studio: show the manual key entry screen
+      setHasKey(false);
+      setErrorMsg(undefined);
+      liveService.current?.stop();
+      liveService.current = null;
+      setCaptions([]);
+      setCurrentText('');
+      setVolume(0);
     }
   };
 
   // Initialize service instance
   const getService = useCallback(() => {
     if (!liveService.current) {
-      const apiKey = process.env.API_KEY || '';
+      const apiKey = getEnvKey() || getStoredKey() || manualApiKey;
       if (!apiKey) {
         setConnectionState(ConnectionState.ERROR);
         setErrorMsg('API Key is missing. Please connect your account.');
@@ -106,7 +135,41 @@ export default function App() {
       );
     }
     return liveService.current;
-  }, [hasKey]);
+  }, [getEnvKey, getStoredKey, manualApiKey]);
+
+  const handleSaveManualKey = () => {
+    const trimmed = manualApiKey.trim();
+    if (!trimmed) {
+      setErrorMsg('Please paste your Gemini API key to continue.');
+      return;
+    }
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, trimmed);
+    } catch (e) {
+      console.warn('Unable to persist API key to localStorage:', e);
+    }
+    setErrorMsg(undefined);
+    setHasKey(true);
+    if (liveService.current) {
+      liveService.current.stop();
+      liveService.current = null;
+    }
+  };
+
+  const handleClearManualKey = () => {
+    try {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+    } catch (e) {
+      console.warn('Unable to clear stored key:', e);
+    }
+    setManualApiKey('');
+    setHasKey(false);
+    liveService.current?.stop();
+    liveService.current = null;
+    setCaptions([]);
+    setCurrentText('');
+    setVolume(0);
+  };
 
   const handleToggle = async () => {
     const service = getService();
@@ -134,6 +197,8 @@ export default function App() {
     );
   }
 
+  const aiStudioAvailable = typeof window !== 'undefined' && !!window.aistudio?.openSelectKey;
+
   if (!hasKey) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-zinc-950 text-white px-4">
@@ -149,16 +214,56 @@ export default function App() {
             <h1 className="text-3xl font-bold tracking-tight">Premium Translation</h1>
             <p className="text-zinc-400 text-lg leading-relaxed">
               Connect your Google Cloud API key to enable high-speed, unlimited translations with Gemini 2.5.
+              Works on desktop and mobile browsers (Chrome, Edge, Safari).
             </p>
           </div>
 
-          <button
-            onClick={handleConnectKey}
-            className="w-full py-4 px-6 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-yellow-400/20 flex items-center justify-center gap-3 text-lg"
-          >
-            <Key className="w-5 h-5" />
-            Connect API Key
-          </button>
+          {aiStudioAvailable ? (
+            <button
+              onClick={handleConnectKey}
+              className="w-full py-4 px-6 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-yellow-400/20 flex items-center justify-center gap-3 text-lg"
+            >
+              <Key className="w-5 h-5" />
+              Connect API Key
+            </button>
+          ) : (
+            <div className="space-y-4 text-left">
+              <label className="text-sm text-zinc-400">Gemini API Key</label>
+              <input
+                value={manualApiKey}
+                onChange={(e) => setManualApiKey(e.target.value)}
+                placeholder="AIza..."
+                className="w-full rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-yellow-400/60 focus:border-yellow-400/40"
+                type="password"
+                autoComplete="off"
+              />
+              <button
+                onClick={handleSaveManualKey}
+                className="w-full py-3 px-6 bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-yellow-400/20 flex items-center justify-center gap-3 text-base"
+              >
+                <Key className="w-5 h-5" />
+                Save & Start
+              </button>
+              {errorMsg && (
+                <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                  {errorMsg}
+                </div>
+              )}
+              {manualApiKey && (
+                <button
+                  onClick={handleClearManualKey}
+                  className="w-full py-2 px-6 text-sm text-zinc-400 hover:text-white transition-colors"
+                  type="button"
+                >
+                  Clear saved key
+                </button>
+              )}
+              <p className="text-xs text-zinc-500">
+                Key is stored locally in your browser (never sent to our servers). 
+                Use https for microphone access on phones.
+              </p>
+            </div>
+          )}
           
           <p className="text-xs text-zinc-600">
             Uses Gemini 2.5 Flash Native Audio Preview

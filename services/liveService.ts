@@ -1,5 +1,5 @@
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
-import { createBlob } from '../utils/audioUtils';
+import { createBlob, resampleTo16k } from '../utils/audioUtils';
 import { ConnectionState } from '../types';
 
 type TranscriptionCallback = (text: string, isFinal: boolean) => void;
@@ -9,6 +9,7 @@ type VolumeCallback = (volume: number) => void;
 export class LiveTranslationService {
   private ai: GoogleGenAI;
   private inputAudioContext: AudioContext | null = null;
+  private inputSampleRate = 16000;
   private mediaStream: MediaStream | null = null;
   private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
@@ -41,15 +42,25 @@ export class LiveTranslationService {
       this.onStateChange(ConnectionState.CONNECTING);
       
       // Initialize Audio Context
-      this.inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-        sampleRate: 16000, // Gemini expects 16k for optimal PCM
-      });
+      const AudioContextConstructor = (window.AudioContext || (window as any).webkitAudioContext);
+      try {
+        // Prefer 16k, but fall back if the device rejects that sample rate (common on mobile).
+        this.inputAudioContext = new AudioContextConstructor({ sampleRate: 16000 });
+      } catch {
+        this.inputAudioContext = new AudioContextConstructor();
+      }
+
+      await this.inputAudioContext.resume();
+      this.inputSampleRate = this.inputAudioContext.sampleRate || 16000;
 
       // Get Microphone Stream
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        throw new Error('Microphone access is not supported in this browser. Please use Chrome/Edge or Safari on a secure (https) connection.');
+      }
+
       this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           channelCount: 1,
-          sampleRate: 16000,
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
@@ -91,7 +102,13 @@ export class LiveTranslationService {
 
     } catch (error: any) {
       console.error('Failed to start service:', error);
-      this.onStateChange(ConnectionState.ERROR, error.message);
+      const friendlyError = error?.name === 'NotAllowedError'
+        ? 'Microphone permission denied. Please enable the mic and try again.'
+        : error?.name === 'NotFoundError'
+          ? 'No microphone found. Plug in a mic or select one in the browser settings.'
+          : error?.message || 'Unable to start translation.';
+
+      this.onStateChange(ConnectionState.ERROR, friendlyError);
       this.stop();
     }
   }
@@ -121,7 +138,11 @@ export class LiveTranslationService {
       const rms = Math.sqrt(sum / inputData.length);
       this.onVolume(Math.min(rms * 5, 1)); // Scale up a bit for visibility
 
-      const pcmBlob = createBlob(inputData);
+      const normalized = this.inputSampleRate === 16000 
+        ? inputData 
+        : resampleTo16k(inputData, this.inputSampleRate);
+
+      const pcmBlob = createBlob(normalized);
       
       if (this.sessionPromise) {
         this.sessionPromise.then((session) => {

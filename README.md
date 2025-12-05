@@ -15,6 +15,12 @@ View your app in AI Studio: https://ai.studio/apps/drive/1d421nI69aivY22m4TfLawZ
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Create `.env.local` and set `VITE_GEMINI_API_KEY=<your_key>` (Vite requires the `VITE_` prefix).  
+   If you already have `API_KEY` set, it will also be picked up.
 3. Run the app:
    `npm run dev`
+
+### Mobile / Web App usage
+- Host the built app over **https** so browsers allow microphone access on phones.
+- If you are not running inside AI Studio, paste your Gemini API key into the landing screen (it is stored locally in your browser).
+- Works on modern desktop and mobile browsers (Chrome, Edge, Safari).
