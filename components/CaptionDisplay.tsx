@@ -4,9 +4,10 @@ import { Caption } from '../types';
 interface CaptionDisplayProps {
   captions: Caption[];
   currentText: string;
+  overlayMode?: boolean;
 }
 
-const CaptionDisplay: React.FC<CaptionDisplayProps> = ({ captions, currentText }) => {
+const CaptionDisplay: React.FC<CaptionDisplayProps> = ({ captions, currentText, overlayMode }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -19,8 +20,11 @@ const CaptionDisplay: React.FC<CaptionDisplayProps> = ({ captions, currentText }
 
   return (
     <div 
-      className="flex-1 overflow-y-auto px-6 py-8 md:px-16 md:py-12 space-y-10 min-h-0 scroll-smooth"
+      className={`flex-1 overflow-y-auto px-6 py-8 md:px-16 md:py-12 space-y-10 min-h-0 scroll-smooth ${
+        overlayMode ? 'bg-black/20' : ''
+      }`}
       ref={containerRef}
+      style={overlayMode ? { backdropFilter: 'blur(2px)' } : undefined}
     >
       <div className="flex flex-col justify-end min-h-full space-y-8">
         {/* Empty state or spacer */}
@@ -33,7 +37,10 @@ const CaptionDisplay: React.FC<CaptionDisplayProps> = ({ captions, currentText }
         {/* Historical Captions */}
         {captions.map((caption) => (
           <div key={caption.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
-            <p className="text-2xl md:text-3xl font-medium text-zinc-400 leading-relaxed tracking-wide opacity-80">
+            <p 
+              className="text-2xl md:text-3xl font-medium text-zinc-200 leading-relaxed tracking-wide"
+              style={overlayMode ? { textShadow: '0 2px 12px rgba(0,0,0,0.65)' } : undefined}
+            >
               {caption.text}
             </p>
           </div>
@@ -42,9 +49,12 @@ const CaptionDisplay: React.FC<CaptionDisplayProps> = ({ captions, currentText }
         {/* Current Streaming Caption */}
         {currentText && (
           <div className="animate-in fade-in zoom-in-95 duration-200">
-             <p className="text-3xl md:text-5xl font-bold text-white leading-relaxed tracking-wide drop-shadow-2xl">
-              <span className="text-yellow-400">{currentText}</span>
-              <span className="inline-block w-3 h-8 md:h-12 ml-2 align-middle bg-yellow-500 animate-blink rounded-sm shadow-[0_0_10px_rgba(234,179,8,0.5)]"/>
+             <p 
+              className="text-3xl md:text-5xl font-bold text-white leading-relaxed tracking-wide drop-shadow-2xl"
+              style={overlayMode ? { textShadow: '0 4px 18px rgba(0,0,0,0.75)' } : undefined}
+            >
+              <span className="text-yellow-300">{currentText}</span>
+              <span className="inline-block w-3 h-8 md:h-12 ml-2 align-middle bg-yellow-400 animate-blink rounded-sm shadow-[0_0_10px_rgba(234,179,8,0.5)]"/>
             </p>
           </div>
         )}

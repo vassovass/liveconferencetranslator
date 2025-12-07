@@ -3,7 +3,7 @@ import { LiveTranslationService } from './services/liveService';
 import { Caption, ConnectionState } from './types';
 import CaptionDisplay from './components/CaptionDisplay';
 import ControlBar from './components/ControlBar';
-import { AlertCircle, Key, Crown } from 'lucide-react';
+import { AlertCircle, Key, Crown, Eye, EyeOff, Info } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'livecaptions_api_key';
 
@@ -16,11 +16,31 @@ export default function App() {
   const [hasKey, setHasKey] = useState<boolean>(false);
   const [isCheckingKey, setIsCheckingKey] = useState<boolean>(true);
   const [manualApiKey, setManualApiKey] = useState<string>('');
+  const [overlayMode, setOverlayMode] = useState<boolean>(false);
   
   const liveService = useRef<LiveTranslationService | null>(null);
 
   useEffect(() => {
     checkApiKey();
+  }, []);
+
+  // Simple keyboard shortcut for overlay mode
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isEditable = target && (
+        target.hasAttribute('contenteditable') ||
+        ['input', 'textarea', 'select', 'option'].includes(tag || '')
+      );
+      if (isEditable) return; // don't hijack typing in form fields
+
+      if (e.key.toLowerCase() === 'o') {
+        setOverlayMode(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   const getStoredKey = useCallback(() => {
@@ -277,17 +297,27 @@ export default function App() {
     );
   }
 
+  const overlayClasses = overlayMode
+    ? 'bg-black/30 backdrop-blur text-white'
+    : 'bg-zinc-950 text-white';
+
   return (
-    <div className="h-screen w-full flex flex-col bg-zinc-950 text-white overflow-hidden">
+    <div className={`h-screen w-full flex flex-col overflow-hidden ${overlayClasses}`}>
       {/* Header Area */}
-      <header className="px-6 py-4 flex items-center justify-between border-b border-zinc-900 bg-zinc-950/50 backdrop-blur-sm z-10">
-        <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
-          LiveCaptions
-          <span className="hidden sm:inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full bg-yellow-400/10 text-yellow-400 text-[10px] font-bold uppercase tracking-wider border border-yellow-400/20">
-            <Crown className="w-3 h-3" /> Premium
-          </span>
-        </h1>
+      <header className={`px-6 py-4 flex items-center justify-between border-b ${overlayMode ? 'border-white/10 bg-black/30' : 'border-zinc-900 bg-zinc-950/50'} backdrop-blur-sm z-10`}>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
+            LiveCaptions
+            <span className="hidden sm:inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full bg-yellow-400/10 text-yellow-400 text-[10px] font-bold uppercase tracking-wider border border-yellow-400/20">
+              <Crown className="w-3 h-3" /> Premium
+            </span>
+          </h1>
+          <div className="flex items-center gap-2 text-xs text-zinc-400">
+            <Info className="w-3 h-3" />
+            <span>Press “O” to toggle overlay mode.</span>
+          </div>
+        </div>
         <div className="flex items-center gap-4">
           <button 
             onClick={handleConnectKey}
@@ -296,6 +326,18 @@ export default function App() {
             <Key className="w-3 h-3" /> Change Key
           </button>
           <div className="text-xs font-mono text-zinc-500">VN → EN</div>
+          <button
+            onClick={() => setOverlayMode(prev => !prev)}
+            className={`text-xs rounded-full px-3 py-1 flex items-center gap-1 border transition-colors ${
+              overlayMode 
+                ? 'bg-yellow-400 text-black border-yellow-300' 
+                : 'text-zinc-400 border-zinc-800 hover:text-white hover:border-zinc-600'
+            }`}
+            title="Overlay mode makes the UI translucent for projecting over slides."
+          >
+            {overlayMode ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+            Overlay
+          </button>
         </div>
       </header>
 
@@ -312,7 +354,7 @@ export default function App() {
         {/* Background Gradients for aesthetic */}
         <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-zinc-950 to-transparent pointer-events-none z-10" />
         
-        <CaptionDisplay captions={captions} currentText={currentText} />
+        <CaptionDisplay captions={captions} currentText={currentText} overlayMode={overlayMode} />
         
         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-zinc-950 to-transparent pointer-events-none z-10" />
       </main>
@@ -322,6 +364,8 @@ export default function App() {
         state={connectionState} 
         onToggle={handleToggle}
         volume={volume}
+        overlayMode={overlayMode}
+        onToggleOverlay={() => setOverlayMode(prev => !prev)}
       />
     </div>
   );
