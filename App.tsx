@@ -276,11 +276,20 @@ export default function App() {
     }
   }, [debugText]);
 
+  const [speedTicker, setSpeedTicker] = React.useState(0);
+
+  // Refresh the 5s log view every second while the panel is open
+  React.useEffect(() => {
+    if (!speedLogOpen) return;
+    const id = setInterval(() => setSpeedTicker((v) => v + 1), 1000);
+    return () => clearInterval(id);
+  }, [speedLogOpen]);
+
   const speedLogText = React.useMemo(() => {
     const cutoff = Date.now() - 5000;
     const recent = debugLog.filter(e => e.ts >= cutoff);
     return recent.map(e => `${new Date(e.ts).toISOString()} ${e.msg}`).join('\n') || 'No events in last 5s.';
-  }, [debugLog]);
+  }, [debugLog, speedTicker]);
 
   const handleCopySpeedLog = useCallback(() => {
     if (navigator?.clipboard?.writeText) {
