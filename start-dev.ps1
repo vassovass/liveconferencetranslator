@@ -87,9 +87,10 @@ if (!key) {
 }
 const client = new GoogleGenAI({ apiKey: key });
 try {
-  const model = process.env.VITE_GEMINI_MODEL || "models/gemini-2.5-flash-native-audio-preview-09-2025";
-  const modelId = model.startsWith("models/") ? model : "models/" + model;
-  await client.getModel(modelId);
+  const model = process.env.VITE_GEMINI_MODEL || "gemini-2.5-flash-native-audio-preview-09-2025";
+  const modelId = model.replace(/^models\//, "");
+  // Use models.get() to verify API key and model access
+  await client.models.get({ model: modelId });
   console.log("SMOKE_OK", modelId, "reachable");
 } catch (e) {
   console.error("SMOKE_FAIL", e?.message ?? e);
