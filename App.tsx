@@ -160,6 +160,7 @@ export default function App() {
         },
         (state, error) => {
           setConnectionState(state);
+          let msg = `State change=${state}`;
           if (error) {
             setErrorMsg(error);
             // If we get a specific error about entity not found (key issue), reset key state
@@ -167,10 +168,10 @@ export default function App() {
               setHasKey(false);
               liveService.current = null;
             }
-            appendDebug(`State change=${state} error=${error}`);
+            msg += ` error=${error}`;
           }
           else if (state === ConnectionState.CONNECTED) setErrorMsg(undefined);
-          appendDebug(`State change=${state}`);
+          appendDebug(msg);
         },
         (vol) => {
           setVolume(vol);
@@ -352,7 +353,7 @@ export default function App() {
       '=== Recent Events ===',
       ...debugLog
     ].join('\n');
-  }, [connectionState, errorMsg, hasKey, isCheckingKey, overlayMode, captions.length, currentText.length, volume, manualApiKey, getEnvKey, debugLog]);
+  }, [connectionState, errorMsg, hasKey, isCheckingKey, overlayMode, captions, currentText, volume, manualApiKey, getEnvKey, debugLog]);
 
   const handleCopyDebug = useCallback(() => {
     if (navigator?.clipboard?.writeText) {
