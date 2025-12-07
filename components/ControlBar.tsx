@@ -56,31 +56,31 @@ const ControlBar: React.FC<ControlBarProps> = ({ state, onToggle, volume, overla
           Overlay
         </button>
 
-        <button
-          onClick={onToggle}
-          disabled={isConnecting}
-          className={`
-            flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all transform hover:scale-105 active:scale-95
-            ${isConnected 
-              ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50' 
-              : 'bg-yellow-400 text-black hover:bg-yellow-300 shadow-lg shadow-yellow-400/20'}
-            disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
-          `}
-        >
-          {isConnecting ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : isConnected ? (
-            <>
-              <MicOff className="w-5 h-5" />
-              <span>Stop</span>
-            </>
-          ) : (
-            <>
-              <Mic className="w-5 h-5" />
-              <span>Start Listening</span>
-            </>
-          )}
-        </button>
+      <button
+        onClick={onToggle}
+        disabled={isConnecting}
+        className={`
+          flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all transform hover:scale-105 active:scale-95
+          ${isConnected 
+            ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50' 
+            : 'bg-yellow-400 text-black hover:bg-yellow-300 shadow-lg shadow-yellow-400/20'}
+          disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
+        `}
+      >
+        {isConnecting ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : isConnected ? (
+          <>
+            <MicOff className="w-5 h-5" />
+            <span>Stop</span>
+          </>
+        ) : (
+          <>
+            <Mic className="w-5 h-5" />
+            <span>Start Listening</span>
+          </>
+        )}
+      </button>
       </div>
     </div>
   );

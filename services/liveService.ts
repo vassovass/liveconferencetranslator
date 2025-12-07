@@ -8,6 +8,7 @@ type VolumeCallback = (volume: number) => void;
 
 export class LiveTranslationService {
   private ai: GoogleGenAI;
+  private modelName: string;
   private inputAudioContext: AudioContext | null = null;
   private inputSampleRate = 16000;
   private mediaStream: MediaStream | null = null;
@@ -25,14 +26,20 @@ export class LiveTranslationService {
 
   constructor(
     apiKey: string,
+    modelName: string,
     onTranscription: TranscriptionCallback,
     onStateChange: StateCallback,
     onVolume: VolumeCallback
   ) {
     this.ai = new GoogleGenAI({ apiKey });
+    this.modelName = modelName;
     this.onTranscription = onTranscription;
     this.onStateChange = onStateChange;
     this.onVolume = onVolume;
+  }
+
+  public getModelName() {
+    return this.modelName;
   }
 
   public async start() {
@@ -69,7 +76,7 @@ export class LiveTranslationService {
 
       // Connect to Gemini Live
       this.sessionPromise = this.ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        model: this.modelName,
         config: {
           // We MUST use AUDIO modality as per the prompt instructions.
           // The model will "speak" the translation, and we capture the transcription of that speech.

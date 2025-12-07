@@ -42,9 +42,8 @@ function Get-KeyFromFile {
   return $null
 }
 
-# Load API key from env or .env.local / .env (supports VITE_GEMINI_API_KEY, GEMINI_API_KEY, API_KEY)
-$existingKey = $env:VITE_GEMINI_API_KEY ?? $env:GEMINI_API_KEY ?? $env:API_KEY
-if (-not $existingKey) {
+# Load API key and model from env or .env.local / .env (PowerShell 5 compatible, no ??)
+if (-not $env:VITE_GEMINI_API_KEY -and -not $env:GEMINI_API_KEY -and -not $env:API_KEY) {
   $key = Get-KeyFromFile -Path ".env.local" -Names @('VITE_GEMINI_API_KEY','GEMINI_API_KEY','API_KEY')
   if (-not $key) {
     $key = Get-KeyFromFile -Path ".env" -Names @('VITE_GEMINI_API_KEY','GEMINI_API_KEY','API_KEY')
@@ -55,31 +54,66 @@ if (-not $existingKey) {
   }
 }
 
+$existingModel = $env:VITE_GEMINI_MODEL
+if (-not $existingModel) {
+  $model = Get-KeyFromFile -Path ".env.local" -Names @('VITE_GEMINI_MODEL')
+  if (-not $model) {
+    $model = Get-KeyFromFile -Path ".env" -Names @('VITE_GEMINI_MODEL')
+  }
+  if ($model) {
+    $env:VITE_GEMINI_MODEL = $model
+    Write-Host "Loaded model from $(if (Test-Path '.env.local') { '.env.local' } else { '.env' }): $model"
+  }
+}
+
 function Invoke-SMokeTest {
   Write-Host "Running Gemini model smoke test..."
-  $cmd = @"
-import { GoogleGenAI } from '@google/genai';
+  $cmd = @'
+import { createRequire } from "module";
+const cwd = process.env.SMOKE_CWD || process.cwd();
+try { process.chdir(cwd); } catch {}
+const require = createRequire(cwd + "/");
+let GoogleGenAI;
+try {
+  ({ GoogleGenAI } = require("@google/genai"));
+} catch (err) {
+  console.error("SMOKE_FAIL Unable to load @google/genai from", cwd, err?.message ?? err);
+  process.exit(4);
+}
 const key = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY;
 if (!key) {
-  console.error('SMOKE_FAIL Missing API key (set VITE_GEMINI_API_KEY or GEMINI_API_KEY).');
+  console.error("SMOKE_FAIL Missing API key (set VITE_GEMINI_API_KEY or GEMINI_API_KEY).");
   process.exit(2);
 }
 const client = new GoogleGenAI({ apiKey: key });
 try {
-  await client.getModel('models/gemini-2.5-flash-native-audio-preview-09-2025');
-  console.log('SMOKE_OK gemini-2.5-flash-native-audio-preview-09-2025 reachable');
+  const model = process.env.VITE_GEMINI_MODEL || "models/gemini-2.5-flash-native-audio-preview-09-2025";
+  const modelId = model.startsWith("models/") ? model : "models/" + model;
+  await client.getModel(modelId);
+  console.log("SMOKE_OK", modelId, "reachable");
 } catch (e) {
-  console.error('SMOKE_FAIL', e?.message ?? e);
-  console.error('Ensure this key has access to gemini-2.5-flash-native-audio-preview-09-2025');
+  console.error("SMOKE_FAIL", e?.message ?? e);
+  console.error("Ensure this key has access to gemini-2.5-flash-native-audio-preview-09-2025");
   process.exit(3);
 }
-"@
-  node --input-type=module -e $cmd
-  if ($LASTEXITCODE -ne 0) {
-    Write-Error "Gemini smoke test failed (exit $LASTEXITCODE). Aborting startup."
-    exit $LASTEXITCODE
-  } else {
-    Write-Host "Smoke test passed."
+'@
+  $tmp = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "gemini-smoke-" + [System.Guid]::NewGuid().ToString() + ".mjs")
+  Set-Content -Path $tmp -Value $cmd -Encoding UTF8
+  try {
+    if (-not $env:NODE_PATH) {
+      $env:NODE_PATH = (Join-Path $ScriptDir "node_modules")
+    }
+    $env:SMOKE_CWD = $ScriptDir
+    node $tmp
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error "Gemini smoke test failed (exit $LASTEXITCODE). Aborting startup."
+      exit $LASTEXITCODE
+    } else {
+      Write-Host "Smoke test passed."
+    }
+  }
+  finally {
+    if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
   }
 }
 

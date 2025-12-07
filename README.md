@@ -20,9 +20,12 @@ Browser-based live captioning for conferences and meetups. Listens to Vietnamese
 ## Quick start
 1. Clone: `git clone <repo-url> && cd liveconferencetranslator`
 2. Install deps: `npm install`
-3. Create `.env.local` with your key  
-   `VITE_GEMINI_API_KEY=your_api_key`  
-   (`GEMINI_API_KEY` is also read and injected as `process.env.API_KEY` for convenience.)
+3. Create `.env.local` with your key (and optionally model)  
+   ```
+   VITE_GEMINI_API_KEY=your_api_key
+   VITE_GEMINI_MODEL=gemini-2.5-flash-native-audio-preview-09-2025
+   ```
+   (`GEMINI_API_KEY`/`API_KEY` are also read and injected for convenience.)
 4. Run dev server: `npm run dev` and open the shown URL (serve over https if possible).
 5. Windows one-click (with policy bypass): run `start-dev.bat`  
    - Uses PowerShell `-ExecutionPolicy Bypass` under the hood.  

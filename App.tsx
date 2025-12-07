@@ -6,6 +6,7 @@ import ControlBar from './components/ControlBar';
 import { AlertCircle, Key, Crown, Eye, EyeOff, Info, Bug, Clipboard, Activity } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'livecaptions_api_key';
+const DEFAULT_MODEL = 'gemini-2.5-flash-native-audio-preview-09-2025';
 
 export default function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
@@ -71,6 +72,12 @@ export default function App() {
     const viteKey = (import.meta as any)?.env?.VITE_GEMINI_API_KEY || '';
     const nodeKey = (typeof process !== 'undefined' ? (process as any)?.env?.API_KEY : '') || '';
     return viteKey || nodeKey || '';
+  }, []);
+
+  const getModelName = useCallback(() => {
+    const viteModel = (import.meta as any)?.env?.VITE_GEMINI_MODEL || '';
+    const nodeModel = (typeof process !== 'undefined' ? (process as any)?.env?.VITE_GEMINI_MODEL : '') || '';
+    return viteModel || nodeModel || DEFAULT_MODEL;
   }, []);
 
   const checkApiKey = async () => {
@@ -141,8 +148,12 @@ export default function App() {
         return null;
       }
 
+      const modelName = getModelName();
+      appendDebug(`Using model=${modelName}`);
+
       liveService.current = new LiveTranslationService(
         apiKey,
+        modelName,
         (text, isFinal) => {
           if (isFinal) {
             setCaptions(prev => [
@@ -181,10 +192,10 @@ export default function App() {
           if (vol > 0.5) appendDebug(`Volume peak=${vol.toFixed(2)}`);
         }
       );
-      appendDebug('Service instance created');
+      appendDebug(`Service instance created model=${modelName}`);
     }
     return liveService.current;
-  }, [getEnvKey, getStoredKey, manualApiKey, appendDebug]);
+  }, [getEnvKey, getStoredKey, manualApiKey, getModelName, appendDebug]);
 
   const handleSaveManualKey = () => {
     const trimmed = manualApiKey.trim();
@@ -260,6 +271,7 @@ export default function App() {
       manualKey: manualApiKey ? `set(len=${manualApiKey.length})` : 'empty',
       envKeyPresent: !!envKey,
       aiStudioAvailable: typeof window !== 'undefined' && !!window.aistudio?.openSelectKey,
+      modelName: getModelName(),
     };
     const eventLines = debugLog.map(e => `${new Date(e.ts).toISOString()} ${e.msg}`);
     return [
@@ -390,13 +402,13 @@ export default function App() {
       {/* Header Area */}
       <header className={`px-6 py-4 flex items-center justify-between border-b ${overlayMode ? 'border-white/10 bg-black/30' : 'border-zinc-900 bg-zinc-950/50'} backdrop-blur-sm z-10`}>
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
-            LiveCaptions
-            <span className="hidden sm:inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full bg-yellow-400/10 text-yellow-400 text-[10px] font-bold uppercase tracking-wider border border-yellow-400/20">
-              <Crown className="w-3 h-3" /> Premium
-            </span>
-          </h1>
+        <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
+          LiveCaptions
+          <span className="hidden sm:inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full bg-yellow-400/10 text-yellow-400 text-[10px] font-bold uppercase tracking-wider border border-yellow-400/20">
+            <Crown className="w-3 h-3" /> Premium
+          </span>
+        </h1>
           <div className="flex items-center gap-2 text-xs text-zinc-400">
             <Info className="w-3 h-3" />
             <span>Press “O” to toggle overlay mode.</span>
