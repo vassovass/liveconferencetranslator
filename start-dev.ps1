@@ -87,14 +87,14 @@ if (!key) {
 }
 const client = new GoogleGenAI({ apiKey: key });
 try {
-  const model = process.env.VITE_GEMINI_MODEL || "gemini-2.5-flash-native-audio-preview-09-2025";
+  const model = process.env.VITE_GEMINI_MODEL || "gemini-live-2.5-flash-preview";
   const modelId = model.replace(/^models\//, "");
   // Use models.get() to verify API key and model access
   await client.models.get({ model: modelId });
   console.log("SMOKE_OK", modelId, "reachable");
 } catch (e) {
   console.error("SMOKE_FAIL", e?.message ?? e);
-  console.error("Ensure this key has access to gemini-2.5-flash-native-audio-preview-09-2025");
+  console.error("Ensure this key has access to gemini-live-2.5-flash-preview");
   process.exit(3);
 }
 '@

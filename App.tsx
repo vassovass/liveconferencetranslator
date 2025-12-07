@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { LiveTranslationService } from './services/liveService';
+import { LiveTranslationService, AudioSource } from './services/liveService';
 import { Caption, ConnectionState } from './types';
 import CaptionDisplay from './components/CaptionDisplay';
 import ControlBar from './components/ControlBar';
-import { AlertCircle, Key, Crown, Eye, EyeOff, Info, Bug, Clipboard, Activity } from 'lucide-react';
+import { AlertCircle, Key, Crown, Bug, Clipboard, Activity, Mic, Monitor } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'livecaptions_api_key';
-const DEFAULT_MODEL = 'gemini-2.5-flash-native-audio-preview-09-2025';
+const DEFAULT_MODEL = 'gemini-live-2.5-flash-preview';
 
 export default function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
@@ -17,10 +17,9 @@ export default function App() {
   const [hasKey, setHasKey] = useState<boolean>(false);
   const [isCheckingKey, setIsCheckingKey] = useState<boolean>(true);
   const [manualApiKey, setManualApiKey] = useState<string>('');
-  const [overlayMode, setOverlayMode] = useState<boolean>(false);
   const [debugOpen, setDebugOpen] = useState<boolean>(false);
   const [debugLog, setDebugLog] = useState<{ ts: number; msg: string }[]>([]);
-  const [speedLogOpen, setSpeedLogOpen] = useState<boolean>(false);
+  const [audioSource, setAudioSource] = useState<AudioSource>('microphone');
   
   const liveService = useRef<LiveTranslationService | null>(null);
 
@@ -28,7 +27,7 @@ export default function App() {
     checkApiKey();
   }, []);
 
-  // Simple keyboard shortcut for overlay mode
+  // Keyboard shortcut for debug
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -37,11 +36,8 @@ export default function App() {
         target.hasAttribute('contenteditable') ||
         ['input', 'textarea', 'select', 'option'].includes(tag || '')
       );
-      if (isEditable) return; // don't hijack typing in form fields
+      if (isEditable) return;
 
-      if (e.key.toLowerCase() === 'o') {
-        setOverlayMode(prev => !prev);
-      }
       if (e.key.toLowerCase() === 'd') {
         setDebugOpen(prev => !prev);
       }
@@ -54,7 +50,6 @@ export default function App() {
     const ts = Date.now();
     setDebugLog(prev => {
       const next = [...prev, { ts, msg }];
-      // keep last 80 lines
       return next.slice(-80);
     });
   }, []);
@@ -68,7 +63,6 @@ export default function App() {
   }, []);
 
   const getEnvKey = useCallback(() => {
-    // Vite exposes env vars with the VITE_ prefix
     const viteKey = (import.meta as any)?.env?.VITE_GEMINI_API_KEY || '';
     const nodeKey = (typeof process !== 'undefined' ? (process as any)?.env?.API_KEY : '') || '';
     return viteKey || nodeKey || '';
@@ -93,7 +87,6 @@ export default function App() {
         setHasKey(has || !!envKey || !!savedKey);
         appendDebug(`AI Studio key check result: ${has}`);
       } else {
-        // Fallback for non-AI Studio environments
         setHasKey(!!envKey || !!savedKey);
       }
     } catch (e) {
@@ -110,11 +103,7 @@ export default function App() {
       try {
         await window.aistudio.openSelectKey();
         appendDebug('openSelectKey invoked');
-        // Assuming success if the modal closes without error, 
-        // as we can't easily detect cancellation vs success in all versions.
-        // Re-check logic:
         setHasKey(true); 
-        // Force cleanup of old service to ensure new key is used
         if (liveService.current) {
           liveService.current.stop();
           liveService.current = null;
@@ -125,7 +114,6 @@ export default function App() {
         appendDebug(`openSelectKey error: ${String(e)}`);
       }
     } else {
-      // Non-AI Studio: show the manual key entry screen
       setHasKey(false);
       setErrorMsg(undefined);
       liveService.current?.stop();
@@ -137,7 +125,6 @@ export default function App() {
     }
   };
 
-  // Initialize service instance
   const getService = useCallback(() => {
     if (!liveService.current) {
       const apiKey = getEnvKey() || getStoredKey() || manualApiKey;
@@ -176,7 +163,6 @@ export default function App() {
           let msg = `State change=${state}`;
           if (error) {
             setErrorMsg(error);
-            // If we get a specific error about entity not found (key issue), reset key state
             if (error.includes('Requested entity was not found')) {
               setHasKey(false);
               liveService.current = null;
@@ -188,14 +174,15 @@ export default function App() {
         },
         (vol) => {
           setVolume(vol);
-          // log only significant changes to avoid spam
           if (vol > 0.5) appendDebug(`Volume peak=${vol.toFixed(2)}`);
         }
       );
       appendDebug(`Service instance created model=${modelName}`);
     }
+    // Always update audio source in case it changed
+    liveService.current.setAudioSource(audioSource);
     return liveService.current;
-  }, [getEnvKey, getStoredKey, manualApiKey, getModelName, appendDebug]);
+  }, [getEnvKey, getStoredKey, manualApiKey, getModelName, appendDebug, audioSource]);
 
   const handleSaveManualKey = () => {
     const trimmed = manualApiKey.trim();
@@ -214,7 +201,7 @@ export default function App() {
       liveService.current.stop();
       liveService.current = null;
     }
-    appendDebug('Manual API key saved (length masked)');
+    appendDebug('Manual API key saved');
   };
 
   const handleClearManualKey = () => {
@@ -246,16 +233,20 @@ export default function App() {
     }
   };
 
-  // Cleanup on unmount
+  const handleAudioSourceChange = (source: AudioSource) => {
+    // Stop current session if running
+    if (liveService.current && connectionState === ConnectionState.CONNECTED) {
+      liveService.current.stop();
+    }
+    setAudioSource(source);
+    appendDebug(`Audio source changed to: ${source}`);
+  };
+
   useEffect(() => {
     return () => {
       liveService.current?.stop();
     };
   }, []);
-
-  const overlayClasses = overlayMode
-    ? 'bg-black/30 backdrop-blur text-white'
-    : 'bg-zinc-950 text-white';
 
   const debugText = React.useMemo(() => {
     const envKey = getEnvKey();
@@ -264,7 +255,6 @@ export default function App() {
       errorMsg,
       hasKey,
       isCheckingKey,
-      overlayMode,
       captionsCount: captions.length,
       currentTextLength: currentText.length,
       volume: Number(volume.toFixed(3)),
@@ -272,6 +262,7 @@ export default function App() {
       envKeyPresent: !!envKey,
       aiStudioAvailable: typeof window !== 'undefined' && !!window.aistudio?.openSelectKey,
       modelName: getModelName(),
+      audioSource,
     };
     const eventLines = debugLog.map(e => `${new Date(e.ts).toISOString()} ${e.msg}`);
     return [
@@ -280,34 +271,13 @@ export default function App() {
       '=== Recent Events ===',
       ...eventLines
     ].join('\n');
-  }, [connectionState, errorMsg, hasKey, isCheckingKey, overlayMode, captions, currentText, volume, manualApiKey, getEnvKey, debugLog]);
+  }, [connectionState, errorMsg, hasKey, isCheckingKey, captions, currentText, volume, manualApiKey, getEnvKey, debugLog, getModelName]);
 
   const handleCopyDebug = useCallback(() => {
     if (navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(debugText).catch(() => {});
     }
   }, [debugText]);
-
-  const [speedTicker, setSpeedTicker] = React.useState(0);
-
-  // Refresh the 5s log view every second while the panel is open
-  React.useEffect(() => {
-    if (!speedLogOpen) return;
-    const id = setInterval(() => setSpeedTicker((v) => v + 1), 1000);
-    return () => clearInterval(id);
-  }, [speedLogOpen]);
-
-  const speedLogText = React.useMemo(() => {
-    const cutoff = Date.now() - 5000;
-    const recent = debugLog.filter(e => e.ts >= cutoff);
-    return recent.map(e => `${new Date(e.ts).toISOString()} ${e.msg}`).join('\n') || 'No events in last 5s.';
-  }, [debugLog, speedTicker]);
-
-  const handleCopySpeedLog = useCallback(() => {
-    if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(speedLogText).catch(() => {});
-    }
-  }, [speedLogText]);
 
   const aiStudioAvailable = typeof window !== 'undefined' && !!window.aistudio?.openSelectKey;
 
@@ -331,10 +301,9 @@ export default function App() {
           </div>
           
           <div className="space-y-4">
-            <h1 className="text-3xl font-bold tracking-tight">Premium Translation</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Live Conference Translator</h1>
             <p className="text-zinc-400 text-lg leading-relaxed">
-              Connect your Google Cloud API key to enable high-speed, unlimited translations with Gemini 2.5.
-              Works on desktop and mobile browsers (Chrome, Edge, Safari).
+              Connect your Google Cloud API key to enable live Vietnamese → English translation with Gemini 2.5.
             </p>
           </div>
 
@@ -398,61 +367,58 @@ export default function App() {
   }
 
   return (
-    <div className={`h-screen w-full flex flex-col overflow-hidden ${overlayClasses}`}>
-      {/* Header Area */}
-      <header className={`px-6 py-4 flex items-center justify-between border-b ${overlayMode ? 'border-white/10 bg-black/30' : 'border-zinc-900 bg-zinc-950/50'} backdrop-blur-sm z-10`}>
-        <div className="flex items-center gap-3">
+    <div className="h-screen w-full flex flex-col overflow-hidden bg-zinc-950 text-white">
+      {/* Header */}
+      <header className="px-6 py-4 flex items-center justify-between border-b border-zinc-900 bg-zinc-950/50 backdrop-blur-sm z-10">
         <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
           LiveCaptions
-          <span className="hidden sm:inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full bg-yellow-400/10 text-yellow-400 text-[10px] font-bold uppercase tracking-wider border border-yellow-400/20">
-            <Crown className="w-3 h-3" /> Premium
-          </span>
         </h1>
-          <div className="flex items-center gap-2 text-xs text-zinc-400">
-            <Info className="w-3 h-3" />
-            <span>Press “O” to toggle overlay mode.</span>
-          </div>
-        </div>
         <div className="flex items-center gap-4">
+          {/* Audio Source Toggle */}
+          <div className="flex items-center gap-1 bg-zinc-900 rounded-full p-1">
+            <button
+              onClick={() => handleAudioSourceChange('microphone')}
+              className={`text-xs rounded-full px-3 py-1 flex items-center gap-1 transition-colors ${
+                audioSource === 'microphone' 
+                  ? 'bg-yellow-400 text-black' 
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Use microphone"
+              type="button"
+            >
+              <Mic className="w-3 h-3" />
+              Mic
+            </button>
+            <button
+              onClick={() => handleAudioSourceChange('system')}
+              className={`text-xs rounded-full px-3 py-1 flex items-center gap-1 transition-colors ${
+                audioSource === 'system' 
+                  ? 'bg-yellow-400 text-black' 
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+              title="Capture tab/system audio"
+              type="button"
+            >
+              <Monitor className="w-3 h-3" />
+              Tab Audio
+            </button>
+          </div>
           <button 
             onClick={handleConnectKey}
             className="text-xs text-zinc-500 hover:text-white transition-colors flex items-center gap-1"
           >
             <Key className="w-3 h-3" /> Change Key
           </button>
-          <div className="text-xs font-mono text-zinc-500">VN → EN</div>
-          <button
-            onClick={() => setOverlayMode(prev => !prev)}
-            className={`text-xs rounded-full px-3 py-1 flex items-center gap-1 border transition-colors ${
-              overlayMode 
-                ? 'bg-yellow-400 text-black border-yellow-300' 
-                : 'text-zinc-400 border-zinc-800 hover:text-white hover:border-zinc-600'
-            }`}
-            title="Overlay mode makes the UI translucent for projecting over slides."
-          >
-            {overlayMode ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-            Overlay
-          </button>
+          <div className="text-xs font-mono text-zinc-500">Tiếng Việt → English</div>
           <button
             onClick={() => setDebugOpen(prev => !prev)}
             className="text-xs rounded-full px-3 py-1 flex items-center gap-1 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
-            title="Toggle debug info panel (also press “D”)."
+            title="Toggle debug info panel (press D)"
             type="button"
           >
             <Bug className="w-3 h-3" />
             Debug
-          </button>
-          <button
-            onClick={() => setSpeedLogOpen(prev => !prev)}
-            className={`text-xs rounded-full px-3 py-1 flex items-center gap-1 border transition-colors ${
-              speedLogOpen ? 'border-yellow-400 text-yellow-300' : 'border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'
-            }`}
-            title="Show last 5 seconds of events for quick copy."
-            type="button"
-          >
-            <Activity className="w-3 h-3" />
-            5s Log
           </button>
         </div>
       </header>
@@ -462,7 +428,7 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div className="font-semibold flex items-center gap-2">
               <Bug className="w-4 h-4 text-yellow-400" />
-              Debug info (copy/paste friendly)
+              Debug info (press D to toggle)
             </div>
             <button
               onClick={handleCopyDebug}
@@ -479,30 +445,6 @@ export default function App() {
             aria-label="Debug information"
             className="w-full h-48 bg-zinc-950 border border-zinc-800 rounded p-2 font-mono text-xs text-zinc-200 resize-none"
           />
-          {speedLogOpen && (
-            <div className="border border-zinc-800 rounded-lg p-2 bg-zinc-950/80 flex flex-col gap-2">
-              <div className="flex items-center justify-between text-xs text-zinc-300">
-                <div className="flex items-center gap-2">
-                  <span className="inline-block w-2 h-2 rounded-full bg-yellow-400" />
-                  Last 5 seconds
-                </div>
-                <button
-                  onClick={handleCopySpeedLog}
-                  className="text-[11px] flex items-center gap-1 px-2 py-1 rounded border border-zinc-700 hover:border-zinc-500"
-                  type="button"
-                >
-                  <Clipboard className="w-3 h-3" />
-                  Copy
-                </button>
-              </div>
-              <textarea
-                readOnly
-                value={speedLogText}
-                aria-label="Last 5 seconds of debug"
-                className="w-full h-24 bg-zinc-950 border border-zinc-800 rounded p-2 font-mono text-xs text-zinc-200 resize-none"
-              />
-            </div>
-          )}
         </div>
       )}
 
@@ -516,11 +458,8 @@ export default function App() {
 
       {/* Main Display */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Background Gradients for aesthetic */}
         <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-zinc-950 to-transparent pointer-events-none z-10" />
-        
-        <CaptionDisplay captions={captions} currentText={currentText} overlayMode={overlayMode} />
-        
+        <CaptionDisplay captions={captions} currentText={currentText} />
         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-zinc-950 to-transparent pointer-events-none z-10" />
       </main>
 
@@ -529,8 +468,6 @@ export default function App() {
         state={connectionState} 
         onToggle={handleToggle}
         volume={volume}
-        overlayMode={overlayMode}
-        onToggleOverlay={() => setOverlayMode(prev => !prev)}
       />
     </div>
   );
