@@ -3,7 +3,7 @@ import { LiveTranslationService } from './services/liveService';
 import { Caption, ConnectionState } from './types';
 import CaptionDisplay from './components/CaptionDisplay';
 import ControlBar from './components/ControlBar';
-import { AlertCircle, Key, Crown, Eye, EyeOff, Info } from 'lucide-react';
+import { AlertCircle, Key, Crown, Eye, EyeOff, Info, Bug, Clipboard } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'livecaptions_api_key';
 
@@ -17,6 +17,8 @@ export default function App() {
   const [isCheckingKey, setIsCheckingKey] = useState<boolean>(true);
   const [manualApiKey, setManualApiKey] = useState<string>('');
   const [overlayMode, setOverlayMode] = useState<boolean>(false);
+  const [debugOpen, setDebugOpen] = useState<boolean>(false);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
   
   const liveService = useRef<LiveTranslationService | null>(null);
 
@@ -38,9 +40,20 @@ export default function App() {
       if (e.key.toLowerCase() === 'o') {
         setOverlayMode(prev => !prev);
       }
+      if (e.key.toLowerCase() === 'd') {
+        setDebugOpen(prev => !prev);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  const appendDebug = useCallback((msg: string) => {
+    setDebugLog(prev => {
+      const next = [...prev, `${new Date().toISOString()} ${msg}`];
+      // keep last 80 lines
+      return next.slice(-80);
+    });
   }, []);
 
   const getStoredKey = useCallback(() => {
@@ -64,10 +77,12 @@ export default function App() {
       const savedKey = getStoredKey();
       if (savedKey) setManualApiKey(savedKey);
       const envKey = getEnvKey();
+      appendDebug(`checkApiKey savedKey=${!!savedKey} envKey=${!!envKey}`);
 
       if (window.aistudio?.hasSelectedApiKey) {
         const has = await window.aistudio.hasSelectedApiKey();
         setHasKey(has || !!envKey || !!savedKey);
+        appendDebug(`AI Studio key check result: ${has}`);
       } else {
         // Fallback for non-AI Studio environments
         setHasKey(!!envKey || !!savedKey);
@@ -75,6 +90,7 @@ export default function App() {
     } catch (e) {
       console.error("Error checking API key:", e);
       setHasKey(false);
+      appendDebug(`checkApiKey error: ${String(e)}`);
     } finally {
       setIsCheckingKey(false);
     }
@@ -84,6 +100,7 @@ export default function App() {
     if (window.aistudio?.openSelectKey) {
       try {
         await window.aistudio.openSelectKey();
+        appendDebug('openSelectKey invoked');
         // Assuming success if the modal closes without error, 
         // as we can't easily detect cancellation vs success in all versions.
         // Re-check logic:
@@ -96,6 +113,7 @@ export default function App() {
       } catch (e) {
         console.error("Error selecting key:", e);
         setErrorMsg("Failed to select API Key. Please try again.");
+        appendDebug(`openSelectKey error: ${String(e)}`);
       }
     } else {
       // Non-AI Studio: show the manual key entry screen
@@ -106,6 +124,7 @@ export default function App() {
       setCaptions([]);
       setCurrentText('');
       setVolume(0);
+      appendDebug('Switched to manual key mode');
     }
   };
 
@@ -116,6 +135,7 @@ export default function App() {
       if (!apiKey) {
         setConnectionState(ConnectionState.ERROR);
         setErrorMsg('API Key is missing. Please connect your account.');
+        appendDebug('Service init failed: missing API key');
         return null;
       }
 
@@ -133,6 +153,7 @@ export default function App() {
               }
             ]);
             setCurrentText('');
+            appendDebug(`Caption finalized (len=${text.length})`);
           } else {
             setCurrentText(text);
           }
@@ -146,16 +167,21 @@ export default function App() {
               setHasKey(false);
               liveService.current = null;
             }
+            appendDebug(`State change=${state} error=${error}`);
           }
           else if (state === ConnectionState.CONNECTED) setErrorMsg(undefined);
+          appendDebug(`State change=${state}`);
         },
         (vol) => {
           setVolume(vol);
+          // log only significant changes to avoid spam
+          if (vol > 0.5) appendDebug(`Volume peak=${vol.toFixed(2)}`);
         }
       );
+      appendDebug('Service instance created');
     }
     return liveService.current;
-  }, [getEnvKey, getStoredKey, manualApiKey]);
+  }, [getEnvKey, getStoredKey, manualApiKey, appendDebug]);
 
   const handleSaveManualKey = () => {
     const trimmed = manualApiKey.trim();
@@ -174,6 +200,7 @@ export default function App() {
       liveService.current.stop();
       liveService.current = null;
     }
+    appendDebug('Manual API key saved (length masked)');
   };
 
   const handleClearManualKey = () => {
@@ -189,6 +216,7 @@ export default function App() {
     setCaptions([]);
     setCurrentText('');
     setVolume(0);
+    appendDebug('Manual API key cleared');
   };
 
   const handleToggle = async () => {
@@ -197,7 +225,9 @@ export default function App() {
 
     if (connectionState === ConnectionState.CONNECTED || connectionState === ConnectionState.CONNECTING) {
       service.stop();
+      appendDebug('Manual stop requested');
     } else {
+      appendDebug('Manual start requested');
       await service.start();
     }
   };
@@ -301,6 +331,35 @@ export default function App() {
     ? 'bg-black/30 backdrop-blur text-white'
     : 'bg-zinc-950 text-white';
 
+  const debugText = React.useMemo(() => {
+    const envKey = getEnvKey();
+    const summary = {
+      connectionState,
+      errorMsg,
+      hasKey,
+      isCheckingKey,
+      overlayMode,
+      captionsCount: captions.length,
+      currentTextLength: currentText.length,
+      volume: Number(volume.toFixed(3)),
+      manualKey: manualApiKey ? `set(len=${manualApiKey.length})` : 'empty',
+      envKeyPresent: !!envKey,
+      aiStudioAvailable: typeof window !== 'undefined' && !!window.aistudio?.openSelectKey,
+    };
+    return [
+      '=== Debug Summary ===',
+      JSON.stringify(summary, null, 2),
+      '=== Recent Events ===',
+      ...debugLog
+    ].join('\n');
+  }, [connectionState, errorMsg, hasKey, isCheckingKey, overlayMode, captions.length, currentText.length, volume, manualApiKey, getEnvKey, debugLog]);
+
+  const handleCopyDebug = useCallback(() => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(debugText).catch(() => {});
+    }
+  }, [debugText]);
+
   return (
     <div className={`h-screen w-full flex flex-col overflow-hidden ${overlayClasses}`}>
       {/* Header Area */}
@@ -338,8 +397,41 @@ export default function App() {
             {overlayMode ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             Overlay
           </button>
+          <button
+            onClick={() => setDebugOpen(prev => !prev)}
+            className="text-xs rounded-full px-3 py-1 flex items-center gap-1 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
+            title="Toggle debug info panel (also press “D”)."
+            type="button"
+          >
+            <Bug className="w-3 h-3" />
+            Debug
+          </button>
         </div>
       </header>
+
+      {debugOpen && (
+        <div className="bg-zinc-900/80 border-b border-zinc-800 text-zinc-200 text-sm px-4 py-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <div className="font-semibold flex items-center gap-2">
+              <Bug className="w-4 h-4 text-yellow-400" />
+              Debug info (copy/paste friendly)
+            </div>
+            <button
+              onClick={handleCopyDebug}
+              className="text-xs flex items-center gap-1 px-3 py-1 rounded border border-zinc-700 hover:border-zinc-500 text-zinc-200"
+              type="button"
+            >
+              <Clipboard className="w-3 h-3" />
+              Copy
+            </button>
+          </div>
+          <textarea
+            readOnly
+            value={debugText}
+            className="w-full h-48 bg-zinc-950 border border-zinc-800 rounded p-2 font-mono text-xs text-zinc-200 resize-none"
+          />
+        </div>
+      )}
 
       {/* Error Banner */}
       {errorMsg && (

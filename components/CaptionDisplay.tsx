@@ -38,7 +38,9 @@ const CaptionDisplay: React.FC<CaptionDisplayProps> = ({ captions, currentText, 
         {captions.map((caption) => (
           <div key={caption.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
             <p 
-              className="text-2xl md:text-3xl font-medium text-zinc-200 leading-relaxed tracking-wide"
+              className={`text-2xl md:text-3xl font-medium text-zinc-200 leading-relaxed tracking-wide ${
+                overlayMode ? '' : 'opacity-80'
+              }`}
               style={overlayMode ? { textShadow: '0 2px 12px rgba(0,0,0,0.65)' } : undefined}
             >
               {caption.text}
