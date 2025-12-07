@@ -156,8 +156,9 @@ export class LiveTranslationService {
   }
 
   private handleMessage(message: LiveServerMessage) {
-    // We are primarily interested in outputTranscription
-    const transcription = message.serverContent?.outputTranscription;
+    // Handle both outputTranscription (text responses) and outputAudioTranscription (audio-to-text of model speech)
+    const transcription = message.serverContent?.outputTranscription 
+      || (message.serverContent as any)?.outputAudioTranscription;
     
     if (transcription?.text) {
       this.currentTranscription += transcription.text;

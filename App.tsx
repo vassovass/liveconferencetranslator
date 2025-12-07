@@ -3,7 +3,7 @@ import { LiveTranslationService } from './services/liveService';
 import { Caption, ConnectionState } from './types';
 import CaptionDisplay from './components/CaptionDisplay';
 import ControlBar from './components/ControlBar';
-import { AlertCircle, Key, Crown, Eye, EyeOff, Info, Bug, Clipboard } from 'lucide-react';
+import { AlertCircle, Key, Crown, Eye, EyeOff, Info, Bug, Clipboard, Activity } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'livecaptions_api_key';
 
@@ -18,7 +18,8 @@ export default function App() {
   const [manualApiKey, setManualApiKey] = useState<string>('');
   const [overlayMode, setOverlayMode] = useState<boolean>(false);
   const [debugOpen, setDebugOpen] = useState<boolean>(false);
-  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [debugLog, setDebugLog] = useState<{ ts: number; msg: string }[]>([]);
+  const [speedLogOpen, setSpeedLogOpen] = useState<boolean>(false);
   
   const liveService = useRef<LiveTranslationService | null>(null);
 
@@ -49,8 +50,9 @@ export default function App() {
   }, []);
 
   const appendDebug = useCallback((msg: string) => {
+    const ts = Date.now();
     setDebugLog(prev => {
-      const next = [...prev, `${new Date().toISOString()} ${msg}`];
+      const next = [...prev, { ts, msg }];
       // keep last 80 lines
       return next.slice(-80);
     });
@@ -240,6 +242,54 @@ export default function App() {
     };
   }, []);
 
+  const overlayClasses = overlayMode
+    ? 'bg-black/30 backdrop-blur text-white'
+    : 'bg-zinc-950 text-white';
+
+  const debugText = React.useMemo(() => {
+    const envKey = getEnvKey();
+    const summary = {
+      connectionState,
+      errorMsg,
+      hasKey,
+      isCheckingKey,
+      overlayMode,
+      captionsCount: captions.length,
+      currentTextLength: currentText.length,
+      volume: Number(volume.toFixed(3)),
+      manualKey: manualApiKey ? `set(len=${manualApiKey.length})` : 'empty',
+      envKeyPresent: !!envKey,
+      aiStudioAvailable: typeof window !== 'undefined' && !!window.aistudio?.openSelectKey,
+    };
+    const eventLines = debugLog.map(e => `${new Date(e.ts).toISOString()} ${e.msg}`);
+    return [
+      '=== Debug Summary ===',
+      JSON.stringify(summary, null, 2),
+      '=== Recent Events ===',
+      ...eventLines
+    ].join('\n');
+  }, [connectionState, errorMsg, hasKey, isCheckingKey, overlayMode, captions, currentText, volume, manualApiKey, getEnvKey, debugLog]);
+
+  const handleCopyDebug = useCallback(() => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(debugText).catch(() => {});
+    }
+  }, [debugText]);
+
+  const speedLogText = React.useMemo(() => {
+    const cutoff = Date.now() - 5000;
+    const recent = debugLog.filter(e => e.ts >= cutoff);
+    return recent.map(e => `${new Date(e.ts).toISOString()} ${e.msg}`).join('\n') || 'No events in last 5s.';
+  }, [debugLog]);
+
+  const handleCopySpeedLog = useCallback(() => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(speedLogText).catch(() => {});
+    }
+  }, [speedLogText]);
+
+  const aiStudioAvailable = typeof window !== 'undefined' && !!window.aistudio?.openSelectKey;
+
   if (isCheckingKey) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-zinc-950 text-white">
@@ -247,8 +297,6 @@ export default function App() {
       </div>
     );
   }
-
-  const aiStudioAvailable = typeof window !== 'undefined' && !!window.aistudio?.openSelectKey;
 
   if (!hasKey) {
     return (
@@ -319,7 +367,7 @@ export default function App() {
           <p className="text-xs text-zinc-600">
             Uses Gemini 2.5 Flash Native Audio Preview
             <br />
-            <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="underline hover:text-zinc-500">
+            <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer noopener" className="underline hover:text-zinc-500">
               View billing documentation
             </a>
           </p>
@@ -327,39 +375,6 @@ export default function App() {
       </div>
     );
   }
-
-  const overlayClasses = overlayMode
-    ? 'bg-black/30 backdrop-blur text-white'
-    : 'bg-zinc-950 text-white';
-
-  const debugText = React.useMemo(() => {
-    const envKey = getEnvKey();
-    const summary = {
-      connectionState,
-      errorMsg,
-      hasKey,
-      isCheckingKey,
-      overlayMode,
-      captionsCount: captions.length,
-      currentTextLength: currentText.length,
-      volume: Number(volume.toFixed(3)),
-      manualKey: manualApiKey ? `set(len=${manualApiKey.length})` : 'empty',
-      envKeyPresent: !!envKey,
-      aiStudioAvailable: typeof window !== 'undefined' && !!window.aistudio?.openSelectKey,
-    };
-    return [
-      '=== Debug Summary ===',
-      JSON.stringify(summary, null, 2),
-      '=== Recent Events ===',
-      ...debugLog
-    ].join('\n');
-  }, [connectionState, errorMsg, hasKey, isCheckingKey, overlayMode, captions, currentText, volume, manualApiKey, getEnvKey, debugLog]);
-
-  const handleCopyDebug = useCallback(() => {
-    if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(debugText).catch(() => {});
-    }
-  }, [debugText]);
 
   return (
     <div className={`h-screen w-full flex flex-col overflow-hidden ${overlayClasses}`}>
@@ -407,6 +422,17 @@ export default function App() {
             <Bug className="w-3 h-3" />
             Debug
           </button>
+          <button
+            onClick={() => setSpeedLogOpen(prev => !prev)}
+            className={`text-xs rounded-full px-3 py-1 flex items-center gap-1 border transition-colors ${
+              speedLogOpen ? 'border-yellow-400 text-yellow-300' : 'border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'
+            }`}
+            title="Show last 5 seconds of events for quick copy."
+            type="button"
+          >
+            <Activity className="w-3 h-3" />
+            5s Log
+          </button>
         </div>
       </header>
 
@@ -429,8 +455,33 @@ export default function App() {
           <textarea
             readOnly
             value={debugText}
+            aria-label="Debug information"
             className="w-full h-48 bg-zinc-950 border border-zinc-800 rounded p-2 font-mono text-xs text-zinc-200 resize-none"
           />
+          {speedLogOpen && (
+            <div className="border border-zinc-800 rounded-lg p-2 bg-zinc-950/80 flex flex-col gap-2">
+              <div className="flex items-center justify-between text-xs text-zinc-300">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-yellow-400" />
+                  Last 5 seconds
+                </div>
+                <button
+                  onClick={handleCopySpeedLog}
+                  className="text-[11px] flex items-center gap-1 px-2 py-1 rounded border border-zinc-700 hover:border-zinc-500"
+                  type="button"
+                >
+                  <Clipboard className="w-3 h-3" />
+                  Copy
+                </button>
+              </div>
+              <textarea
+                readOnly
+                value={speedLogText}
+                aria-label="Last 5 seconds of debug"
+                className="w-full h-24 bg-zinc-950 border border-zinc-800 rounded p-2 font-mono text-xs text-zinc-200 resize-none"
+              />
+            </div>
+          )}
         </div>
       )}
 

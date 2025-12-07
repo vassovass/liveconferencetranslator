@@ -27,8 +27,10 @@ Browser-based live captioning for conferences and meetups. Listens to Vietnamese
 5. Windows one-click (with policy bypass): run `start-dev.bat`  
    - Uses PowerShell `-ExecutionPolicy Bypass` under the hood.  
    - Keeps the window open so you can copy/paste logs.  
+   - Runs a Gemini smoke test before starting dev; fails fast if the API key is missing/invalid.
    - For Node inspector: `start-dev.bat --inspect` (sets `NODE_OPTIONS=--inspect` via the PS script).
 6. PowerShell direct: `powershell -ExecutionPolicy Bypass -File .\start-dev.ps1`  
+   - Runs the same smoke test and stops on failure.  
    - Optional inspector: `powershell -ExecutionPolicy Bypass -File .\start-dev.ps1 -Inspect`
 
 ## Using the app
