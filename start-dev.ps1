@@ -20,14 +20,38 @@ if (-not (Test-Path "node_modules")) {
   npm install
 }
 
-# Load API key from env or .env.local
-if (-not $env:VITE_GEMINI_API_KEY -and -not $env:GEMINI_API_KEY -and -not $env:API_KEY) {
-  if (Test-Path ".env.local") {
-    $match = Select-String -Path ".env.local" -Pattern "VITE_GEMINI_API_KEY\s*=\s*(.+)" | Select-Object -First 1
-    if ($match) {
-      $env:VITE_GEMINI_API_KEY = $match.Matches[0].Groups[1].Value.Trim()
-      Write-Host "Loaded VITE_GEMINI_API_KEY from .env.local"
-    }
+function Get-KeyFromFile {
+  param(
+    [string]$Path,
+    [string[]]$Names
+  )
+  if (-not (Test-Path $Path)) { return $null }
+  $lines = Get-Content -Path $Path
+  foreach ($line in $lines) {
+    $trimmed = $line.Trim()
+    if ($trimmed -like '#*' -or $trimmed -eq '') { continue }
+    $parts = $trimmed -split '=', 2
+    if ($parts.Count -lt 2) { continue }
+    $name = $parts[0].Trim()
+    $val = $parts[1].Trim()
+    # strip surrounding quotes
+    if ($val.StartsWith('"') -and $val.EndsWith('"')) { $val = $val.Substring(1, $val.Length-2) }
+    if ($val.StartsWith("'") -and $val.EndsWith("'")) { $val = $val.Substring(1, $val.Length-2) }
+    if ($Names -contains $name) { return $val }
+  }
+  return $null
+}
+
+# Load API key from env or .env.local / .env (supports VITE_GEMINI_API_KEY, GEMINI_API_KEY, API_KEY)
+$existingKey = $env:VITE_GEMINI_API_KEY ?? $env:GEMINI_API_KEY ?? $env:API_KEY
+if (-not $existingKey) {
+  $key = Get-KeyFromFile -Path ".env.local" -Names @('VITE_GEMINI_API_KEY','GEMINI_API_KEY','API_KEY')
+  if (-not $key) {
+    $key = Get-KeyFromFile -Path ".env" -Names @('VITE_GEMINI_API_KEY','GEMINI_API_KEY','API_KEY')
+  }
+  if ($key) {
+    $env:VITE_GEMINI_API_KEY = $key
+    Write-Host "Loaded API key from $(if (Test-Path '.env.local') { '.env.local' } else { '.env' }) (length: $($key.Length))"
   }
 }
 
@@ -42,10 +66,11 @@ if (!key) {
 }
 const client = new GoogleGenAI({ apiKey: key });
 try {
-  await client.getModel('models/gemini-1.5-flash');
-  console.log('SMOKE_OK model reachable');
+  await client.getModel('models/gemini-2.5-flash-native-audio-preview-09-2025');
+  console.log('SMOKE_OK gemini-2.5-flash-native-audio-preview-09-2025 reachable');
 } catch (e) {
   console.error('SMOKE_FAIL', e?.message ?? e);
+  console.error('Ensure this key has access to gemini-2.5-flash-native-audio-preview-09-2025');
   process.exit(3);
 }
 "@
