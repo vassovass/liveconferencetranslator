@@ -1,0 +1,340 @@
+/**
+ * LiveTranslator Widget Styles
+ *
+ * Mobile-first, scoped CSS with lt- prefix to avoid conflicts.
+ * No external dependencies (Tailwind not required).
+ *
+ * Min supported viewport: 320px
+ * Touch target minimum: 44px
+ */
+
+/* ============================================
+   Reset & Base Styles
+   ============================================ */
+
+.lt-widget {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.lt-widget *,
+.lt-widget *::before,
+.lt-widget *::after {
+  box-sizing: inherit;
+}
+
+/* ============================================
+   Layout Utilities
+   ============================================ */
+
+.lt-flex { display: flex; }
+.lt-flex-col { flex-direction: column; }
+.lt-flex-wrap { flex-wrap: wrap; }
+.lt-flex-1 { flex: 1 1 0%; }
+.lt-items-center { align-items: center; }
+.lt-justify-center { justify-content: center; }
+.lt-justify-between { justify-content: space-between; }
+.lt-justify-end { justify-content: flex-end; }
+.lt-gap-1 { gap: 0.25rem; }
+.lt-gap-2 { gap: 0.5rem; }
+.lt-gap-3 { gap: 0.75rem; }
+.lt-space-y-3 > * + * { margin-top: 0.75rem; }
+.lt-min-h-0 { min-height: 0; }
+.lt-min-h-full { min-height: 100%; }
+.lt-min-w-\[140px\] { min-width: 140px; }
+.lt-overflow-hidden { overflow: hidden; }
+.lt-overflow-y-auto { overflow-y: auto; }
+
+/* ============================================
+   Spacing Utilities
+   ============================================ */
+
+.lt-px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+.lt-px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+.lt-px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+.lt-py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+.lt-py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.lt-py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.lt-py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+.lt-ml-1 { margin-left: 0.25rem; }
+.lt-h-1 { height: 0.25rem; }
+.lt-h-2 { height: 0.5rem; }
+.lt-h-5 { height: 1.25rem; }
+.lt-h-full { height: 100%; }
+.lt-w-2 { width: 0.5rem; }
+.lt-w-16 { width: 4rem; }
+
+/* ============================================
+   Typography Utilities
+   ============================================ */
+
+.lt-text-xs { font-size: 0.75rem; line-height: 1rem; }
+.lt-text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.lt-text-base { font-size: 1rem; line-height: 1.5rem; }
+.lt-text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.lt-font-medium { font-weight: 500; }
+.lt-font-semibold { font-weight: 600; }
+.lt-leading-relaxed { line-height: 1.625; }
+.lt-italic { font-style: italic; }
+.lt-opacity-50 { opacity: 0.5; }
+.lt-opacity-70 { opacity: 0.7; }
+.lt-opacity-80 { opacity: 0.8; }
+
+/* ============================================
+   Color Utilities - Dark Theme
+   ============================================ */
+
+.lt-bg-zinc-800 { background-color: #27272a; }
+.lt-bg-zinc-900 { background-color: #18181b; }
+.lt-bg-zinc-950 { background-color: #09090b; }
+.lt-bg-yellow-400 { background-color: #facc15; }
+.lt-bg-green-500\/20 { background-color: rgba(34, 197, 94, 0.2); }
+.lt-bg-red-500\/10 { background-color: rgba(239, 68, 68, 0.1); }
+.lt-bg-current { background-color: currentColor; }
+
+.lt-text-white { color: #ffffff; }
+.lt-text-black { color: #000000; }
+.lt-text-zinc-200 { color: #e4e4e7; }
+.lt-text-zinc-400 { color: #a1a1aa; }
+.lt-text-zinc-500 { color: #71717a; }
+.lt-text-yellow-300 { color: #fde047; }
+.lt-text-yellow-500 { color: #eab308; }
+.lt-text-green-400 { color: #4ade80; }
+.lt-text-green-500 { color: #22c55e; }
+.lt-text-red-400 { color: #f87171; }
+.lt-text-red-500 { color: #ef4444; }
+
+.lt-border-zinc-700 { border-color: #3f3f46; }
+.lt-border-zinc-800 { border-color: #27272a; }
+.lt-border-red-500\/20 { border-color: rgba(239, 68, 68, 0.2); }
+.lt-border-red-500\/50 { border-color: rgba(239, 68, 68, 0.5); }
+
+/* ============================================
+   Color Utilities - Light Theme
+   ============================================ */
+
+.lt-bg-white { background-color: #ffffff; }
+.lt-bg-gray-100 { background-color: #f3f4f6; }
+.lt-bg-blue-500 { background-color: #3b82f6; }
+.lt-bg-blue-600 { background-color: #2563eb; }
+.lt-bg-red-100 { background-color: #fee2e2; }
+.lt-bg-red-50 { background-color: #fef2f2; }
+.lt-bg-green-100 { background-color: #dcfce7; }
+
+.lt-text-gray-600 { color: #4b5563; }
+.lt-text-gray-700 { color: #374151; }
+.lt-text-gray-900 { color: #111827; }
+.lt-text-blue-600 { color: #2563eb; }
+.lt-text-red-600 { color: #dc2626; }
+.lt-text-green-600 { color: #16a34a; }
+
+.lt-border-gray-200 { border-color: #e5e7eb; }
+.lt-border-gray-300 { border-color: #d1d5db; }
+.lt-border-red-200 { border-color: #fecaca; }
+
+/* ============================================
+   Border Utilities
+   ============================================ */
+
+.lt-border { border-width: 1px; border-style: solid; }
+.lt-border-b { border-bottom-width: 1px; border-bottom-style: solid; }
+.lt-border-t { border-top-width: 1px; border-top-style: solid; }
+.lt-rounded { border-radius: 0.25rem; }
+.lt-rounded-lg { border-radius: 0.5rem; }
+.lt-rounded-full { border-radius: 9999px; }
+.lt-rounded-sm { border-radius: 0.125rem; }
+
+/* ============================================
+   Interactive Elements
+   ============================================ */
+
+.lt-widget button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.lt-widget button:disabled {
+  cursor: not-allowed;
+}
+
+.lt-widget select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  padding-right: 2rem;
+}
+
+/* Touch target sizes - minimum 44px */
+.lt-min-h-\[44px\] { min-height: 44px; }
+.lt-min-h-\[48px\] { min-height: 48px; }
+.lt-min-w-\[120px\] { min-width: 120px; }
+
+/* ============================================
+   Transitions
+   ============================================ */
+
+.lt-transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+.lt-duration-75 {
+  transition-duration: 75ms;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+
+@keyframes lt-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes lt-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes lt-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes lt-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.lt-animate-spin {
+  animation: lt-spin 1s linear infinite;
+}
+
+.lt-animate-pulse {
+  animation: lt-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.lt-animate-blink {
+  animation: lt-blink 1s ease-in-out infinite;
+}
+
+.lt-animate-fade-in {
+  animation: lt-fade-in 0.3s ease-out forwards;
+}
+
+/* ============================================
+   Hover States (desktop only)
+   ============================================ */
+
+@media (hover: hover) {
+  .hover\:lt-bg-yellow-300:hover { background-color: #fde047; }
+  .hover\:lt-bg-blue-600:hover { background-color: #2563eb; }
+}
+
+/* ============================================
+   Disabled States
+   ============================================ */
+
+.disabled\:lt-opacity-50:disabled { opacity: 0.5; }
+.disabled\:lt-cursor-not-allowed:disabled { cursor: not-allowed; }
+
+/* ============================================
+   Alignment Utilities
+   ============================================ */
+
+.lt-align-middle { vertical-align: middle; }
+.lt-inline-block { display: inline-block; }
+
+/* ============================================
+   Scrollbar Styling (WebKit)
+   ============================================ */
+
+.lt-widget ::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lt-widget ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lt-widget ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 3px;
+}
+
+.lt-widget ::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+/* ============================================
+   Mobile-First Responsive
+   ============================================ */
+
+/* Base: Mobile (320px+) */
+.lt-widget {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Small tablets (480px+) */
+@media (min-width: 480px) {
+  .lt-widget {
+    max-width: 480px;
+  }
+}
+
+/* Tablets and up (768px+) */
+@media (min-width: 768px) {
+  .lt-widget {
+    max-width: 600px;
+  }
+}
+
+/* ============================================
+   Safe Area Insets (iPhone X+)
+   ============================================ */
+
+@supports (padding: max(0px)) {
+  .lt-widget {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ============================================
+   Reduced Motion
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .lt-animate-spin,
+  .lt-animate-pulse,
+  .lt-animate-blink,
+  .lt-animate-fade-in {
+    animation: none;
+  }
+
+  .lt-transition-all {
+    transition: none;
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+
+@media print {
+  .lt-widget button,
+  .lt-widget header {
+    display: none;
+  }
+}
